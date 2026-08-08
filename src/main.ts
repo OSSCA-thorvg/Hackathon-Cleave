@@ -11,10 +11,15 @@ const ROT_SPEED = 2.4;
 const CUT_COVERAGE = 0.66;
 const HANDLE_RATIO = 0.16;
 const STAGE_TIME = 30;
-//Placeholders. Replace once we know what a real run looks like.
-const STARS = [70, 160, 300];
+const SPARK_LIFE = 0.5;
+const SPARK_COUNT = 9;
+//Tuned for the carrot. Each ingredient will need its own thresholds.
+const STARS = [100, 200, 300];
 const GATHER_PUSH = 1.0;
-
+//Carrot: a smooth convex cone, wide at the top, tapering to a tip.
+const CARROT_VERTS = 9;
+const CARROT_LEN = 380;
+const CARROT_TOP = 76;
 //Parallel blades that all cut on one press.
 const KNIFE_SETS = [
   { scale: 1.0, count: 1, gap: 0 },
@@ -26,7 +31,18 @@ const FLING_CHANCE = 0.125;
 const FLING_BOOST = 4.5;
 
 type Pt = { x: number; y: number };
-type Piece = { outline: Pt[]; r: number; g: number; b: number; vx: number; vy: number };
+
+//The outline never moves. Motion lives in dx/dy and is applied by translate().
+type Piece = {
+  outline: Pt[];
+  dx: number; dy: number;
+  vx: number; vy: number;
+  r: number; g: number; b: number;
+  shape: any;
+  live: boolean;
+};
+
+type Spark = { x: number; y: number; vx: number; vy: number; life: number; shape: any };
 
 //Sign tells which side of the line ab the point p lies on.
 function side(a: Pt, b: Pt, p: Pt) {
@@ -108,8 +124,51 @@ function clamp(v: number) {
   return Math.max(45, Math.min(245, Math.round(v)));
 }
 
+//A convex carrot silhouette: rounded shoulders, faceted flanks, blunt tip.
+function carrotOutline(cx: number, cy: number): Pt[] {
+  const half = CARROT_LEN / 2;
+
+  //Width profile: full at the shoulder, easing off toward the tip.
+  const widthAt = (t: number) => {
+    const shoulder = Math.sin(Math.min(1, t / 0.05) * Math.PI / 2);
+    const taper = Math.pow(1 - t, 0.62);
+    return CARROT_TOP * taper * shoulder;
+  };
+
+  const left: Pt[] = [];
+  const right: Pt[] = [];
+  for (let i = 0; i <= CARROT_VERTS; i++) {
+    const t = i / CARROT_VERTS;
+    const y = cy - half + CARROT_LEN * t;
+    const w = widthAt(t);
+    left.push({ x: cx - w, y });
+    right.push({ x: cx + w, y });
+  }
+
+  return [...left, ...right.reverse()];
+}
+
+//Colour comes from where the piece sat inside the original carrot:
+//dark orange at the skin, pale core in the middle.
+function carrotColour(x: number, y: number, cx: number, cy: number) {
+  const half = CARROT_LEN / 2;
+  const t = Math.min(1, Math.max(0, (y - cy + half) / CARROT_LEN));
+  const taper = Math.pow(1 - t, 0.62);
+  const w = Math.max(6, CARROT_TOP * taper);
+
+  //0 at the core, 1 at the skin.
+  const edge = Math.min(1, Math.abs(x - cx) / w);
+  const k = edge * edge;
+
+  return {
+    r: Math.round(247 - k * 25),
+    g: Math.round(178 - k * 62),
+    b: Math.round(112 - k * 76),
+  };
+}
+
 function jitter(channel: number) {
-  return clamp(channel + (Math.random() - 0.5) * 44);
+  return clamp(channel + (Math.random() - 0.5) * 20);
 }
 
 async function main() {
@@ -120,45 +179,102 @@ async function main() {
 
   const canvas = new TVG.Canvas('#canvas', { width: WIDTH, height: HEIGHT });
 
-  //Start with a convex pentagon.
-  const pieces: Piece[] = [];
-  const first: Piece = { outline: [], r: 230, g: 200, b: 90, vx: 0, vy: 0 };
-  for (let i = 0; i < 5; i++) {
-    const angle = -Math.PI / 2 + i * (Math.PI * 2 / 5);
-    first.outline.push({
-      x: WIDTH / 2 + 170 * Math.cos(angle),
-      y: HEIGHT / 2 + 170 * Math.sin(angle),
-    });
-  }
-  pieces.push(first);
-
   const el = document.querySelector('#canvas') as HTMLCanvasElement;
   const countEl = document.querySelector('#count') as HTMLElement;
   const timerEl = document.querySelector('#timer') as HTMLElement;
   const resultEl = document.querySelector('#result') as HTMLElement;
   const starsEl = document.querySelector('#stars') as HTMLElement;
   const finalEl = document.querySelector('#final') as HTMLElement;
+  const timerWrap = document.querySelector('#timer-wrap') as HTMLElement;
+  const fillEl = document.querySelector('#timer-fill') as HTMLElement;
+  const knifeBtns = document.querySelectorAll('.knife');
+  const introEl = document.querySelector('#intro') as HTMLElement;
+
+  const pieces: Piece[] = [];
+  const bladeShapes: any[] = [];
+  const sparks: Spark[] = [];
+
+  //A short burst along the cut, so a chop reads as a hit.
+  function spawnSparks(x: number, y: number, dirX: number, dirY: number) {
+    for (let i = 0; i < SPARK_COUNT; i++) {
+      const spread = (Math.random() - 0.5) * 1.5;
+      const sx = dirX * Math.cos(spread) - dirY * Math.sin(spread);
+      const sy = dirX * Math.sin(spread) + dirY * Math.cos(spread);
+      const speed = 220 + Math.random() * 380;
+      const flip = Math.random() < 0.5 ? 1 : -1;
+
+      const r = 2.5 + Math.random() * 5;
+      const shape = new TVG.Shape();
+      shape.appendCircle(x, y, r, r);
+      shape.fill(255, 214, 150, 255);
+      canvas.add(shape);
+
+      shape.__ox = x;
+      shape.__oy = y;
+      sparks.push({ x, y, vx: sx * speed * flip, vy: sy * speed * flip, life: SPARK_LIFE, shape });
+    }
+  }
 
   let timeLeft = STAGE_TIME;
-  let running = true;
+  let running = false;
+
+  //Shapes are built once and kept in the scene; only translate() changes.
+  function makePiece(outline: Pt[], r: number, g: number, b: number,
+    vx: number, vy: number): Piece {
+    const shape = new TVG.Shape();
+    shape.moveTo(outline[0].x, outline[0].y);
+    for (let i = 1; i < outline.length; i++) {
+      shape.lineTo(outline[i].x, outline[i].y);
+    }
+    shape.close();
+    shape.fill(r, g, b, 255);
+    shape.stroke({ width: 4, color: [92, 48, 20, 255] });
+    canvas.add(shape);
+    return { outline, dx: 0, dy: 0, vx, vy, r, g, b, shape, live: true };
+  }
+
+  //World-space copy of a piece's outline, for hit testing.
+  function worldOutline(piece: Piece): Pt[] {
+    return piece.outline.map((p) => ({ x: p.x + piece.dx, y: p.y + piece.dy }));
+  }
+
+  function centroid(piece: Piece): Pt {
+    let cx = 0, cy = 0;
+    for (const p of piece.outline) { cx += p.x; cy += p.y; }
+    return {
+      x: cx / piece.outline.length + piece.dx,
+      y: cy / piece.outline.length + piece.dy,
+    };
+  }
+
+  function centroidOf(points: Pt[]): Pt {
+    let x = 0, y = 0;
+    for (const p of points) { x += p.x; y += p.y; }
+    return { x: x / points.length, y: y / points.length };
+  }
 
   function resetStage() {
+    canvas.clear();
     pieces.length = 0;
-    const start: Piece = { outline: [], r: 230, g: 200, b: 90, vx: 0, vy: 0 };
-    for (let i = 0; i < 5; i++) {
-      const angle = -Math.PI / 2 + i * (Math.PI * 2 / 5);
-      start.outline.push({
-        x: WIDTH / 2 + 170 * Math.cos(angle),
-        y: HEIGHT / 2 + 170 * Math.sin(angle),
-      });
-    }
-    pieces.push(start);
+    bladeShapes.length = 0;
+    sparks.length = 0;
+
+    const outline = carrotOutline(WIDTH / 2, HEIGHT / 2);
+    const c = carrotColour(WIDTH / 2, HEIGHT / 2, WIDTH / 2, HEIGHT / 2);
+    pieces.push(makePiece(outline, c.r, c.g, c.b, 0, 0));
 
     timeLeft = STAGE_TIME;
-    running = true;
+    running = false;
+    introEl.classList.remove('gone');
     resultEl.classList.remove('show');
-    timerEl.classList.remove('low');
+    timerWrap.classList.remove('low');
+    fillEl.style.width = '100%';
+    setKnife(0);
     countEl.textContent = '1';
+
+    //Leaves sit on the carrot for a moment, then get trimmed away.
+    const leaves = document.querySelector('#leaves') as HTMLElement;
+    leaves.classList.remove('gone');
   }
 
   function endStage() {
@@ -167,7 +283,7 @@ async function main() {
     let earned = 0;
     for (const t of STARS) if (n >= t) earned++;
     starsEl.textContent = '★'.repeat(earned) + '☆'.repeat(3 - earned);
-    finalEl.textContent = n + ' pieces';
+    finalEl.textContent = String(n);
     resultEl.classList.add('show');
     console.log('final: ' + n);
   }
@@ -175,12 +291,32 @@ async function main() {
   (document.querySelector('#again') as HTMLElement)
     .addEventListener('click', resetStage);
 
+  //Play only begins once the cook is ready, so the timer never runs on an idle screen.
+  function startStage() {
+    introEl.classList.add('gone');
+    running = true;
+    const leaves = document.querySelector('#leaves') as HTMLElement;
+    setTimeout(() => leaves.classList.add('gone'), 700);
+  }
+
+  (document.querySelector('#start') as HTMLElement)
+    .addEventListener('click', startStage);
+
   let cursor: Pt = { x: WIDTH / 2, y: HEIGHT / 2 };
   let knifeAngle = 0;
   let knifeSet = 0;
+
+  function setKnife(n: number) {
+    knifeSet = n;
+    knifeBtns.forEach((b, i) => b.classList.toggle('active', i === n));
+  }
+
+  knifeBtns.forEach((b) => {
+    b.addEventListener('click', () => setKnife(Number((b as HTMLElement).dataset.set)));
+  });
+
   let rotating = false;
   let sweeping = false;
-
 
   function position(e: PointerEvent): Pt {
     const rect = el.getBoundingClientRect();
@@ -229,9 +365,9 @@ async function main() {
   //Backup for laptops without a mouse.
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') { e.preventDefault(); rotating = true; }
-    if (e.code === 'Digit1') knifeSet = 0;
-    if (e.code === 'Digit2') knifeSet = 1;
-    if (e.code === 'Digit3') knifeSet = 2;
+    if (e.code === 'Digit1') setKnife(0);
+    if (e.code === 'Digit2') setKnife(1);
+    if (e.code === 'Digit3') setKnife(2);
   });
   window.addEventListener('keyup', (e) => {
     if (e.code === 'Space') rotating = false;
@@ -266,8 +402,7 @@ async function main() {
 
     const mx = to.x - from.x;
     const my = to.y - from.y;
-    const moved = Math.hypot(mx, my);
-    if (moved < 0.5) return;
+    if (Math.hypot(mx, my) < 0.5) return;
 
     const dx = Math.cos(knifeAngle);
     const dy = Math.sin(knifeAngle);
@@ -283,13 +418,9 @@ async function main() {
     const reach = (set.count - 1) * set.gap / 2 + 22;
 
     for (const piece of pieces) {
-      let cx = 0, cy = 0;
-      for (const p of piece.outline) { cx += p.x; cy += p.y; }
-      cx /= piece.outline.length;
-      cy /= piece.outline.length;
-
-      const rx = cx - to.x;
-      const ry = cy - to.y;
+      const c = centroid(piece);
+      const rx = c.x - to.x;
+      const ry = c.y - to.y;
 
       //Distance along the blade, and perpendicular to it.
       const t = rx * dx + ry * dy;
@@ -301,10 +432,9 @@ async function main() {
       if (s * shove > 0) continue;
 
       const delta = shove * GATHER_PUSH;
-      for (const p of piece.outline) {
-        p.x += nx * delta;
-        p.y += ny * delta;
-      }
+      piece.dx += nx * delta;
+      piece.dy += ny * delta;
+      piece.shape.translate(piece.dx, piece.dy);
       piece.vx = 0;
       piece.vy = 0;
     }
@@ -313,10 +443,10 @@ async function main() {
   function chop() {
     if (!running) return;
     const set = KNIFE_SETS[knifeSet];
-    const dx = Math.cos(knifeAngle);
-    const dy = Math.sin(knifeAngle);
-    const nx = -dy;
-    const ny = dx;
+    const dirX = Math.cos(knifeAngle);
+    const dirY = Math.sin(knifeAngle);
+    const nx = -dirY;
+    const ny = dirX;
 
     //The handle end is decoration, so only the sharp part counts.
     const full = KNIFE_LEN * set.scale;
@@ -325,41 +455,54 @@ async function main() {
 
     for (const [a, b] of bladeLines()) {
       const origin = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-      const result: Piece[] = [];
+      const born: Piece[] = [];
+      let cutAny = false;
 
       for (const piece of pieces) {
-        if (!bladeCuts(piece.outline, origin, dx, dy, edgeBack, half)) {
-          result.push(piece);
-          continue;
-        }
+        const world = worldOutline(piece);
+        if (!bladeCuts(world, origin, dirX, dirY, edgeBack, half)) continue;
 
-        const left = clipHalf(piece.outline, a, b, true);
-        const right = clipHalf(piece.outline, a, b, false);
+        const left = clipHalf(world, a, b, true);
+        const right = clipHalf(world, a, b, false);
 
         //The line missed, or would only shave a sliver off.
         if (left.length < 3 || right.length < 3 ||
-          area(left) < MIN_AREA || area(right) < MIN_AREA) {
-          result.push(piece);
-          continue;
-        }
+          area(left) < MIN_AREA || area(right) < MIN_AREA) continue;
 
         //Every so often a piece goes flying, so there is a reason to gather.
         const fling = Math.random() < FLING_CHANCE ? FLING_BOOST : 1;
         const push = (3 + Math.random() * 4) * DRIFT_SPEED * fling;
-        result.push({
-          outline: left,
-          r: jitter(piece.r), g: jitter(piece.g), b: jitter(piece.b),
-          vx: nx * push, vy: ny * push,
-        });
-        result.push({
-          outline: right,
-          r: jitter(piece.r), g: jitter(piece.g), b: jitter(piece.b),
-          vx: -nx * push, vy: -ny * push,
-        });
+
+        //Each piece keeps the colour of wherever it came from.
+        const lc = centroidOf(left);
+        const rc = centroidOf(right);
+        const lcol = carrotColour(lc.x, lc.y, WIDTH / 2, HEIGHT / 2);
+        const rcol = carrotColour(rc.x, rc.y, WIDTH / 2, HEIGHT / 2);
+
+        born.push(makePiece(left, jitter(lcol.r), jitter(lcol.g), jitter(lcol.b),
+          nx * push, ny * push));
+        born.push(makePiece(right, jitter(rcol.r), jitter(rcol.g), jitter(rcol.b),
+          -nx * push, -ny * push));
+
+        //Burst where the blade actually crossed, not at the piece's centre.
+        const cutMid = {
+          x: (lc.x + rc.x) / 2,
+          y: (lc.y + rc.y) / 2,
+        };
+        spawnSparks(cutMid.x, cutMid.y, dirX, dirY);
+        piece.live = false;
+        cutAny = true;
       }
 
-      pieces.length = 0;
-      pieces.push(...result);
+      if (cutAny) {
+        for (let i = pieces.length - 1; i >= 0; i--) {
+          if (!pieces[i].live) {
+            pieces[i].shape.opacity(0);
+            pieces.splice(i, 1);
+          }
+        }
+        pieces.push(...born);
+      }
     }
 
     countEl.textContent = String(pieces.length);
@@ -368,7 +511,6 @@ async function main() {
   let lastTime = 0;
 
   function animate(time: number) {
-
     const dt = lastTime === 0 ? 0.016 : Math.min((time - lastTime) / 1000, 0.1);
     lastTime = time;
 
@@ -379,60 +521,58 @@ async function main() {
         endStage();
       }
       timerEl.textContent = String(Math.ceil(timeLeft));
-      if (timeLeft <= 5) timerEl.classList.add('low');
+      fillEl.style.width = (timeLeft / STAGE_TIME * 100) + '%';
+      if (timeLeft <= 5) timerWrap.classList.add('low');
     }
+
     if (rotating) knifeAngle += ROT_SPEED * dt;
 
-    //Move the pieces that are still drifting.
+    //Only moving pieces touch the scene; the rest cost nothing.
     for (const piece of pieces) {
+      if (piece.vx === 0 && piece.vy === 0) continue;
+
       if (Math.abs(piece.vx) < DRIFT_STOP && Math.abs(piece.vy) < DRIFT_STOP) {
         piece.vx = 0;
         piece.vy = 0;
         continue;
       }
-      for (const p of piece.outline) {
-        p.x += piece.vx * dt;
-        p.y += piece.vy * dt;
-      }
+
+      piece.dx += piece.vx * dt;
+      piece.dy += piece.vy * dt;
       piece.vx *= DAMPING;
       piece.vy *= DAMPING;
 
       //Pieces bounce off the edge of the board instead of escaping.
-      let cx = 0, cy = 0;
-      for (const p of piece.outline) { cx += p.x; cy += p.y; }
-      cx /= piece.outline.length;
-      cy /= piece.outline.length;
-
+      const c = centroid(piece);
       const M = 40;
-      if (cx < M && piece.vx < 0) piece.vx *= -0.4;
-      if (cx > WIDTH - M && piece.vx > 0) piece.vx *= -0.4;
-      if (cy < M && piece.vy < 0) piece.vy *= -0.4;
-      if (cy > HEIGHT - M && piece.vy > 0) piece.vy *= -0.4;
+      if (c.x < M && piece.vx < 0) piece.vx *= -0.4;
+      if (c.x > WIDTH - M && piece.vx > 0) piece.vx *= -0.4;
+      if (c.y < M && piece.vy < 0) piece.vy *= -0.4;
+      if (c.y > HEIGHT - M && piece.vy > 0) piece.vy *= -0.4;
+
+      piece.shape.translate(piece.dx, piece.dy);
     }
 
-    canvas.clear();
-
-    for (const piece of pieces) {
-      //Shadow first, so stacked pieces visibly darken.
-      const shadow = new TVG.Shape();
-      shadow.moveTo(piece.outline[0].x + 4, piece.outline[0].y + 5);
-      for (let i = 1; i < piece.outline.length; i++) {
-        shadow.lineTo(piece.outline[i].x + 4, piece.outline[i].y + 5);
+    //Sparks fade out and leave the scene.
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const s = sparks[i];
+      s.life -= dt;
+      if (s.life <= 0) {
+        s.shape.opacity(0);
+        sparks.splice(i, 1);
+        continue;
       }
-      shadow.close();
-      shadow.fill(40, 22, 10, 70);
-      canvas.add(shadow);
-
-      const shape = new TVG.Shape();
-      shape.moveTo(piece.outline[0].x, piece.outline[0].y);
-      for (let i = 1; i < piece.outline.length; i++) {
-        shape.lineTo(piece.outline[i].x, piece.outline[i].y);
-      }
-      shape.close();
-      shape.fill(piece.r, piece.g, piece.b, 255);
-      shape.stroke({ width: 2, color: [14, 14, 18, 255] });
-      canvas.add(shape);
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      s.vx *= 0.93;
+      s.vy *= 0.93;
+      s.shape.translate(s.x - s.shape.__ox, s.y - s.shape.__oy);
+      s.shape.opacity(Math.round(255 * (s.life / SPARK_LIFE)));
     }
+
+    //The blade is rebuilt each frame; that is two shapes, not eight hundred.
+    for (const s of bladeShapes) s.opacity(0);
+    bladeShapes.length = 0;
 
     for (const [a, b] of bladeLines()) {
       const blade = new TVG.Shape();
@@ -440,6 +580,7 @@ async function main() {
       blade.lineTo(b.x, b.y);
       blade.stroke({ width: 7, color: [225, 228, 235, 235] });
       canvas.add(blade);
+      bladeShapes.push(blade);
 
       const hx = a.x + (b.x - a.x) * HANDLE_RATIO;
       const hy = a.y + (b.y - a.y) * HANDLE_RATIO;
@@ -448,12 +589,15 @@ async function main() {
       handle.lineTo(hx, hy);
       handle.stroke({ width: 13, color: [92, 58, 38, 255] });
       canvas.add(handle);
+      bladeShapes.push(handle);
     }
 
+    canvas.update();
     canvas.render();
     requestAnimationFrame(animate);
   }
 
+  resetStage();
   requestAnimationFrame(animate);
 }
 

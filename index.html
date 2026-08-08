@@ -4,6 +4,9 @@
 <head>
   <meta charset="UTF-8" />
   <title>Cleave</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Jua&display=swap" rel="stylesheet">
   <style>
     * {
       margin: 0;
@@ -22,6 +25,7 @@
 
     #stage {
       position: relative;
+      container-type: size;
       width: min(95vw, 140vh);
       aspect-ratio: 3 / 2;
       background: url('./kitchen.png') center / 100% 100% no-repeat;
@@ -46,60 +50,153 @@
       height: 57% !important;
     }
 
+    #leaves {
+      position: absolute;
+      left: 53.9%;
+      top: 9%;
+      width: 22%;
+      transform: translateX(-50%);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+      pointer-events: none;
+    }
+
+    #leaves.gone {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-30px);
+    }
+
     #hud {
       position: absolute;
       inset: 0;
       pointer-events: none;
-      font-family: system-ui, sans-serif;
-      color: #4a2c18;
+      font-family: 'Fredoka', 'Jua', system-ui, sans-serif;
+      color: #5c3a1e;
     }
 
-    /* 조각 수 — 위치 조정할 값 */
-    #count-box {
+    /* ---- 공통 패널 ---- */
+    .panel {
+      background: #fff4dc;
+      border: 0.5cqw solid #5c3a1e;
+      border-radius: 1.4cqw;
+      box-shadow: 0 0.5cqw 0 #c9a173;
+    }
+
+    /* ---- 조각 수 ---- */
+    #counter {
       position: absolute;
-      left: 4%;
+      left: 2.5%;
       top: 3%;
-      text-align: left;
+      padding: 1cqw 2cqw 0.8cqw;
+      text-align: center;
+      min-width: 13cqw;
     }
 
     #count {
-      font-size: 64px;
-      font-weight: 800;
-      line-height: 1;
-    }
-
-    #count-label {
-      font-size: 15px;
-      letter-spacing: 2px;
-      opacity: 0.75;
-    }
-
-    /* 남은 시간 — 위치 조정할 값 */
-    #timer-box {
-      position: absolute;
-      right: 4%;
-      top: 3%;
-      text-align: right;
-    }
-
-    #timer {
-      font-size: 52px;
+      font-size: 5.2cqw;
       font-weight: 700;
       line-height: 1;
     }
 
-    #timer.low {
-      color: #c33;
+    #count-label {
+      font-size: 1.2cqw;
+      font-weight: 700;
+      letter-spacing: 0.25cqw;
+      opacity: 0.6;
+      margin-top: 0.3cqw;
     }
 
+    /* ---- 타이머 ---- */
+    #timer-wrap {
+      position: absolute;
+      right: 2.5%;
+      top: 3%;
+      padding: 1cqw 1.8cqw;
+      text-align: center;
+      min-width: 11cqw;
+    }
+
+    #timer {
+      font-size: 4cqw;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    #timer-bar {
+      margin-top: 0.7cqw;
+      height: 0.9cqw;
+      background: #e0cfae;
+      border-radius: 1cqw;
+      overflow: hidden;
+    }
+
+    #timer-fill {
+      height: 100%;
+      width: 100%;
+      background: #6cba7a;
+      border-radius: 1cqw;
+      transition: background 0.3s;
+    }
+
+    #timer-wrap.low #timer {
+      color: #d94f3d;
+    }
+
+    #timer-wrap.low #timer-fill {
+      background: #d94f3d;
+    }
+
+    /* ---- 칼 선택 ---- */
+    #knives {
+      position: absolute;
+      left: 2.5%;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 1cqw;
+    }
+
+    .knife {
+      pointer-events: auto;
+      width: 8cqw;
+      height: 8cqw;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4cqw;
+      cursor: pointer;
+      opacity: 0.5;
+      transform: scale(0.86);
+      transition: opacity 0.15s, transform 0.15s;
+      font-family: inherit;
+    }
+
+    .knife svg {
+      width: 4.4cqw;
+      height: 4.4cqw;
+    }
+
+    .knife span {
+      font-size: 1.3cqw;
+      font-weight: 700;
+      color: #5c3a1e;
+    }
+
+    .knife.active {
+      opacity: 1;
+      transform: scale(1);
+      background: #ffe0a8;
+    }
+
+    /* ---- 결과 ---- */
     #result {
       position: absolute;
       inset: 0;
       display: none;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: rgba(20, 10, 5, 0.55);
+      background: rgba(40, 22, 10, 0.5);
       pointer-events: auto;
     }
 
@@ -107,25 +204,121 @@
       display: flex;
     }
 
+    #result-card {
+      padding: 3cqw 6cqw;
+      text-align: center;
+    }
+
     #stars {
-      font-size: 76px;
-      letter-spacing: 12px;
+      font-size: 6cqw;
+      letter-spacing: 1cqw;
+      color: #f0a93c;
+      line-height: 1.1;
     }
 
     #final {
-      font-size: 30px;
-      color: #fff;
-      margin: 14px 0 26px;
+      font-size: 5cqw;
+      font-weight: 700;
+      line-height: 1;
+      margin-top: 1cqw;
+    }
+
+    #final-label {
+      font-size: 1.3cqw;
+      font-weight: 700;
+      letter-spacing: 0.25cqw;
+      opacity: 0.6;
     }
 
     #again {
-      font-size: 20px;
-      padding: 14px 34px;
-      border: none;
-      border-radius: 10px;
-      background: #f0c14b;
-      cursor: pointer;
+      margin-top: 2.2cqw;
+      font-family: inherit;
+      font-size: 1.9cqw;
       font-weight: 700;
+      color: #5c3a1e;
+      padding: 1cqw 3.4cqw;
+      border: 0.4cqw solid #5c3a1e;
+      border-radius: 1.2cqw;
+      background: #ffc861;
+      box-shadow: 0 0.5cqw 0 #c98c33;
+      cursor: pointer;
+    }
+
+    #again:active {
+      transform: translateY(0.3cqw);
+      box-shadow: 0 0.2cqw 0 #c98c33;
+    }
+
+    #intro {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(40, 22, 10, 0.5);
+      pointer-events: auto;
+    }
+
+    #intro.gone {
+      display: none;
+    }
+
+    #intro-card {
+      padding: 3cqw 5cqw;
+      text-align: center;
+      max-width: 52cqw;
+    }
+
+    #title {
+      font-size: 6cqw;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0.2cqw;
+    }
+
+    #subtitle {
+      font-size: 1.5cqw;
+      font-weight: 500;
+      opacity: 0.65;
+      margin-top: 0.6cqw;
+    }
+
+    #rules {
+      margin: 2.4cqw 0 0;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.9cqw 1.6cqw;
+      text-align: left;
+      font-size: 1.6cqw;
+      font-weight: 500;
+    }
+
+    #rules b {
+      font-weight: 700;
+      background: #ffe0a8;
+      border: 0.25cqw solid #5c3a1e;
+      border-radius: 0.6cqw;
+      padding: 0.15cqw 0.8cqw;
+      white-space: nowrap;
+    }
+
+    #start {
+      margin-top: 2.6cqw;
+      font-family: inherit;
+      font-size: 2.2cqw;
+      font-weight: 700;
+      color: #5c3a1e;
+      padding: 1.1cqw 4cqw;
+      border: 0.4cqw solid #5c3a1e;
+      border-radius: 1.2cqw;
+      background: #ffc861;
+      box-shadow: 0 0.5cqw 0 #c98c33;
+      cursor: pointer;
+    }
+
+    #start:active {
+      transform: translateY(0.3cqw);
+      box-shadow: 0 0.2cqw 0 #c98c33;
     }
   </style>
 </head>
@@ -134,18 +327,68 @@
   <div id="stage">
     <img id="board" src="./board.png" />
     <canvas id="canvas"></canvas>
+    <img id="leaves" src="./leaves.svg" />
+
     <div id="hud">
-      <div id="count-box">
+      <div id="counter" class="panel">
         <div id="count">1</div>
         <div id="count-label">PIECES</div>
       </div>
-      <div id="timer-box">
+
+      <div id="timer-wrap" class="panel">
         <div id="timer">30</div>
+        <div id="timer-bar">
+          <div id="timer-fill"></div>
+        </div>
       </div>
+
+      <div id="knives">
+        <button class="knife panel active" data-set="0">
+          <svg viewBox="0 0 40 40" fill="none" stroke="#5c3a1e" stroke-width="4" stroke-linecap="round">
+            <line x1="8" y1="32" x2="32" y2="8" />
+          </svg>
+          <span>1</span>
+        </button>
+        <button class="knife panel" data-set="1">
+          <svg viewBox="0 0 40 40" fill="none" stroke="#5c3a1e" stroke-width="4" stroke-linecap="round">
+            <line x1="4" y1="26" x2="22" y2="8" />
+            <line x1="18" y1="34" x2="36" y2="16" />
+          </svg>
+          <span>2</span>
+        </button>
+        <button class="knife panel" data-set="2">
+          <svg viewBox="0 0 40 40" fill="none" stroke="#5c3a1e" stroke-width="4" stroke-linecap="round">
+            <line x1="3" y1="22" x2="17" y2="8" />
+            <line x1="12" y1="30" x2="26" y2="16" />
+            <line x1="21" y1="38" x2="35" y2="24" />
+          </svg>
+          <span>3</span>
+        </button>
+      </div>
+
+      <div id="intro">
+        <div id="intro-card" class="panel">
+          <div id="title">Cleave</div>
+          <div id="subtitle">제한 시간 안에 재료를 최대한 잘게</div>
+
+          <div id="rules">
+            <b>좌클릭</b><span>칼날에 걸린 조각을 자릅니다</span>
+            <b>좌클릭 드래그</b><span>흩어진 조각을 칼로 모읍니다</span>
+            <b>우클릭</b><span>칼이 돌아갑니다</span>
+            <b>1 2 3</b><span>칼을 바꿉니다</span>
+          </div>
+
+          <button id="start">시작하기</button>
+        </div>
+      </div>
+
       <div id="result">
-        <div id="stars">☆☆☆</div>
-        <div id="final">0 pieces</div>
-        <button id="again">다시하기</button>
+        <div id="result-card" class="panel">
+          <div id="stars">☆☆☆</div>
+          <div id="final">0</div>
+          <div id="final-label">PIECES</div>
+          <button id="again">다시하기</button>
+        </div>
       </div>
     </div>
   </div>
