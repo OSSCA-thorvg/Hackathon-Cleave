@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Cleave</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: -5%;
+      background: url('./kitchen.png') center / cover no-repeat;
+      filter: blur(20px) brightness(0.7);
+      z-index: 0;
+    }
+
+    #stage {
+      position: relative;
+      z-index: 1;
+      width: min(95vw, 140vh);
+      aspect-ratio: 3 / 2;
+      background: url('./kitchen.png') center / 100% 100% no-repeat;
+      border-radius: 14px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+    }
+
+    #board {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #canvas {
+      position: absolute;
+      left: 26%;
+      top: 25%;
+      width: 56%;
+      height: 45%;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="stage">
+    <img id="board" src="./board.png" />
+    <canvas id="canvas"></canvas>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>
