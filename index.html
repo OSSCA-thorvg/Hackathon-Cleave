@@ -13,16 +13,15 @@
 
     body {
       height: 100vh;
+      background: #6a452f;
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      background: #6a452f;
     }
 
     #stage {
       position: relative;
-      z-index: 1;
       width: min(95vw, 140vh);
       aspect-ratio: 3 / 2;
       background: url('./kitchen.png') center / 100% 100% no-repeat;
@@ -36,14 +35,97 @@
       inset: 0;
       width: 100%;
       height: 100%;
+      transform: scale(1.20);
     }
 
     #canvas {
       position: absolute;
-      left: 26%;
-      top: 25%;
-      width: 56%;
-      height: 45%;
+      left: 21%;
+      top: 19%;
+      width: 66% !important;
+      height: 57% !important;
+    }
+
+    #hud {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      font-family: system-ui, sans-serif;
+      color: #4a2c18;
+    }
+
+    /* 조각 수 — 위치 조정할 값 */
+    #count-box {
+      position: absolute;
+      left: 4%;
+      top: 3%;
+      text-align: left;
+    }
+
+    #count {
+      font-size: 64px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    #count-label {
+      font-size: 15px;
+      letter-spacing: 2px;
+      opacity: 0.75;
+    }
+
+    /* 남은 시간 — 위치 조정할 값 */
+    #timer-box {
+      position: absolute;
+      right: 4%;
+      top: 3%;
+      text-align: right;
+    }
+
+    #timer {
+      font-size: 52px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    #timer.low {
+      color: #c33;
+    }
+
+    #result {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(20, 10, 5, 0.55);
+      pointer-events: auto;
+    }
+
+    #result.show {
+      display: flex;
+    }
+
+    #stars {
+      font-size: 76px;
+      letter-spacing: 12px;
+    }
+
+    #final {
+      font-size: 30px;
+      color: #fff;
+      margin: 14px 0 26px;
+    }
+
+    #again {
+      font-size: 20px;
+      padding: 14px 34px;
+      border: none;
+      border-radius: 10px;
+      background: #f0c14b;
+      cursor: pointer;
+      font-weight: 700;
     }
   </style>
 </head>
@@ -52,6 +134,20 @@
   <div id="stage">
     <img id="board" src="./board.png" />
     <canvas id="canvas"></canvas>
+    <div id="hud">
+      <div id="count-box">
+        <div id="count">1</div>
+        <div id="count-label">PIECES</div>
+      </div>
+      <div id="timer-box">
+        <div id="timer">30</div>
+      </div>
+      <div id="result">
+        <div id="stars">☆☆☆</div>
+        <div id="final">0 pieces</div>
+        <button id="again">다시하기</button>
+      </div>
+    </div>
   </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
