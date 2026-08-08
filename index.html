@@ -50,6 +50,7 @@
       height: 57% !important;
     }
 
+    /* ---- 재료 장식 ---- */
     #leaves {
       position: absolute;
       left: 53.9%;
@@ -63,6 +64,22 @@
     #leaves.gone {
       opacity: 0;
       transform: translateX(-50%) translateY(-30px);
+    }
+
+    #calyx {
+      position: absolute;
+      left: 53.9%;
+      top: 32%;
+      width: 16%;
+      transform: translateX(-50%);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+      pointer-events: none;
+      display: none;
+    }
+
+    #calyx.gone {
+      opacity: 0;
+      transform: translateX(-50%) scale(1.4);
     }
 
     #hud {
@@ -79,6 +96,20 @@
       border: 0.5cqw solid #5c3a1e;
       border-radius: 1.4cqw;
       box-shadow: 0 0.5cqw 0 #c9a173;
+    }
+
+    /* ---- 재료 이름 ---- */
+    #stage-name {
+      position: absolute;
+      left: 50%;
+      top: 3%;
+      transform: translateX(-50%);
+      font-size: 2.4cqw;
+      font-weight: 700;
+      padding: 0.6cqw 2cqw;
+      background: #fff4dc;
+      border: 0.4cqw solid #5c3a1e;
+      border-radius: 1cqw;
     }
 
     /* ---- 조각 수 ---- */
@@ -103,6 +134,15 @@
       letter-spacing: 0.25cqw;
       opacity: 0.6;
       margin-top: 0.3cqw;
+    }
+
+    #goal {
+      margin-top: 0.5cqw;
+      padding-top: 0.5cqw;
+      border-top: 0.15cqw solid #e0cfae;
+      font-size: 1.3cqw;
+      font-weight: 700;
+      color: #c98c33;
     }
 
     /* ---- 타이머 ---- */
@@ -189,67 +229,8 @@
       background: #ffe0a8;
     }
 
-    /* ---- 결과 ---- */
-    #result {
-      position: absolute;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      background: rgba(40, 22, 10, 0.5);
-      pointer-events: auto;
-    }
-
-    #result.show {
-      display: flex;
-    }
-
-    #result-card {
-      padding: 3cqw 6cqw;
-      text-align: center;
-    }
-
-    #stars {
-      font-size: 6cqw;
-      letter-spacing: 1cqw;
-      color: #f0a93c;
-      line-height: 1.1;
-    }
-
-    #final {
-      font-size: 5cqw;
-      font-weight: 700;
-      line-height: 1;
-      margin-top: 1cqw;
-    }
-
-    #final-label {
-      font-size: 1.3cqw;
-      font-weight: 700;
-      letter-spacing: 0.25cqw;
-      opacity: 0.6;
-    }
-
-    #again {
-      margin-top: 2.2cqw;
-      font-family: inherit;
-      font-size: 1.9cqw;
-      font-weight: 700;
-      color: #5c3a1e;
-      padding: 1cqw 3.4cqw;
-      border: 0.4cqw solid #5c3a1e;
-      border-radius: 1.2cqw;
-      background: #ffc861;
-      box-shadow: 0 0.5cqw 0 #c98c33;
-      cursor: pointer;
-    }
-
-    #again:active {
-      transform: translateY(0.3cqw);
-      box-shadow: 0 0.2cqw 0 #c98c33;
-    }
-
-    #intro {
+    /* ---- 오버레이 공통 ---- */
+    .overlay {
       position: absolute;
       inset: 0;
       display: flex;
@@ -259,10 +240,11 @@
       pointer-events: auto;
     }
 
-    #intro.gone {
+    .overlay.gone {
       display: none;
     }
 
+    /* ---- 시작 화면 ---- */
     #intro-card {
       padding: 3cqw 5cqw;
       text-align: center;
@@ -302,13 +284,11 @@
       white-space: nowrap;
     }
 
-    #start {
-      margin-top: 2.6cqw;
+    /* ---- 버튼 ---- */
+    .btn {
       font-family: inherit;
-      font-size: 2.2cqw;
       font-weight: 700;
       color: #5c3a1e;
-      padding: 1.1cqw 4cqw;
       border: 0.4cqw solid #5c3a1e;
       border-radius: 1.2cqw;
       background: #ffc861;
@@ -316,9 +296,199 @@
       cursor: pointer;
     }
 
-    #start:active {
+    .btn:active {
       transform: translateY(0.3cqw);
       box-shadow: 0 0.2cqw 0 #c98c33;
+    }
+
+    #start {
+      margin-top: 2.6cqw;
+      font-size: 2.2cqw;
+      padding: 1.1cqw 4cqw;
+    }
+
+    #again {
+      margin-top: 2.2cqw;
+      font-size: 1.9cqw;
+      padding: 1cqw 3.4cqw;
+    }
+
+    #to-select {
+      display: block;
+      margin: 1cqw auto 0;
+      font-size: 1.5cqw;
+      padding: 0.7cqw 2.4cqw;
+      background: #ffe9c2;
+      border-width: 0.35cqw;
+      border-radius: 1cqw;
+      box-shadow: none;
+    }
+
+    #to-select:active {
+      transform: translateY(0.2cqw);
+      box-shadow: none;
+    }
+
+    /* ---- 결과 ---- */
+    #result-card {
+      padding: 3cqw 6cqw;
+      text-align: center;
+    }
+
+    #stars {
+      font-size: 6cqw;
+      letter-spacing: 1cqw;
+      color: #f0a93c;
+      line-height: 1.1;
+    }
+
+    #final {
+      font-size: 5cqw;
+      font-weight: 700;
+      line-height: 1;
+      margin-top: 1cqw;
+    }
+
+    #final-label {
+      font-size: 1.3cqw;
+      font-weight: 700;
+      letter-spacing: 0.25cqw;
+      opacity: 0.6;
+    }
+
+    #final-goal {
+      margin-top: 0.8cqw;
+      font-size: 1.3cqw;
+      font-weight: 700;
+      color: #c98c33;
+    }
+
+    /* ---- 재료 선택 ---- */
+    #select {
+      background: rgba(40, 22, 10, 0.55);
+      z-index: 5;
+    }
+
+    #select-card {
+      padding: 3cqw 4cqw;
+      text-align: center;
+    }
+
+    #select-title {
+      font-size: 3.4cqw;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 2.2cqw;
+    }
+
+    #stage-list {
+      display: flex;
+      gap: 1.4cqw;
+    }
+
+    .stage-card {
+      width: 12cqw;
+      height: 15.5cqw;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5cqw;
+      font-family: inherit;
+      background: #ffe9c2;
+      border: 0.4cqw solid #5c3a1e;
+      border-radius: 1.2cqw;
+      box-shadow: 0 0.5cqw 0 #c9a173;
+      cursor: pointer;
+    }
+
+    .stage-card:active {
+      transform: translateY(0.3cqw);
+      box-shadow: 0 0.2cqw 0 #c9a173;
+    }
+
+    .stage-card .emoji {
+      font-size: 4cqw;
+      line-height: 1;
+    }
+
+    .stage-card .label {
+      font-size: 1.6cqw;
+      font-weight: 700;
+      color: #5c3a1e;
+    }
+
+    .stage-card .time {
+      font-size: 1.2cqw;
+      opacity: 0.6;
+      color: #5c3a1e;
+    }
+
+    .stage-card .goal {
+      font-size: 1.05cqw;
+      font-weight: 700;
+      color: #c98c33;
+      letter-spacing: 0.05cqw;
+    }
+
+    .stage-card.locked {
+      background: #ddd0bb;
+      opacity: 0.6;
+      cursor: default;
+      box-shadow: none;
+    }
+
+    .stage-card.locked .label {
+      font-size: 1.3cqw;
+    }
+
+    /* ---- 카운트다운 ---- */
+    #countdown {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 6;
+    }
+
+    #countdown.show {
+      display: flex;
+    }
+
+    #count-text {
+      font-family: inherit;
+      font-size: 14cqw;
+      font-weight: 700;
+      color: #fff4dc;
+      text-shadow: 0 0 1.4cqw rgba(60, 30, 10, 0.85);
+    }
+
+    #count-text.beat {
+      animation: pop 0.75s ease-out;
+    }
+
+    @keyframes pop {
+      0% {
+        transform: scale(0.4);
+        opacity: 0;
+      }
+
+      30% {
+        transform: scale(1.15);
+        opacity: 1;
+      }
+
+      70% {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      100% {
+        transform: scale(1.5);
+        opacity: 0;
+      }
     }
   </style>
 </head>
@@ -328,11 +498,15 @@
     <img id="board" src="./board.png" />
     <canvas id="canvas"></canvas>
     <img id="leaves" src="./leaves.svg" />
+    <img id="calyx" src="./calyx.svg" />
 
     <div id="hud">
+      <div id="stage-name">당근</div>
+
       <div id="counter" class="panel">
         <div id="count">1</div>
         <div id="count-label">PIECES</div>
+        <div id="goal">★ 100</div>
       </div>
 
       <div id="timer-wrap" class="panel">
@@ -366,7 +540,7 @@
         </button>
       </div>
 
-      <div id="intro">
+      <div id="intro" class="overlay">
         <div id="intro-card" class="panel">
           <div id="title">Cleave</div>
           <div id="subtitle">제한 시간 안에 재료를 최대한 잘게</div>
@@ -378,17 +552,57 @@
             <b>1 2 3</b><span>칼을 바꿉니다</span>
           </div>
 
-          <button id="start">시작하기</button>
+          <button id="start" class="btn">시작하기</button>
         </div>
       </div>
 
-      <div id="result">
+      <div id="result" class="overlay gone">
         <div id="result-card" class="panel">
           <div id="stars">☆☆☆</div>
           <div id="final">0</div>
           <div id="final-label">PIECES</div>
-          <button id="again">다시하기</button>
+          <div id="final-goal"></div>
+          <button id="again" class="btn">다시하기</button>
+          <button id="to-select" class="btn">재료 고르기</button>
         </div>
+      </div>
+
+      <div id="select" class="overlay gone">
+        <div id="select-card" class="panel">
+          <div id="select-title">재료 고르기</div>
+          <div id="stage-list">
+            <button class="stage-card" data-stage="0">
+              <span class="emoji">🥕</span>
+              <span class="label">당근</span>
+              <span class="time">30초</span>
+              <span class="goal">★100 ★200 ★300</span>
+            </button>
+            <button class="stage-card" data-stage="1">
+              <span class="emoji">🍅</span>
+              <span class="label">토마토</span>
+              <span class="time">25초</span>
+              <span class="goal">★200 ★500 ★800</span>
+            </button>
+            <button class="stage-card" data-stage="2">
+              <span class="emoji">🌿</span>
+              <span class="label">파</span>
+              <span class="time">20초</span>
+              <span class="goal">★200 ★350 ★500</span>
+            </button>
+            <div class="stage-card locked">
+              <span class="emoji">🔒</span>
+              <span class="label">COMING<br>SOON</span>
+            </div>
+            <div class="stage-card locked">
+              <span class="emoji">🔒</span>
+              <span class="label">COMING<br>SOON</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="countdown">
+        <div id="count-text">3</div>
       </div>
     </div>
   </div>
