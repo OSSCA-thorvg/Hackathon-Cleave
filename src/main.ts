@@ -22,6 +22,7 @@ const GATHER_PUSH = 1.0;
 const SPARK_LIFE = 0.5;
 const SPARK_COUNT = 9;
 const SPARK_DAMPING = 0.93;
+const DECOR_FADE_DURATION = 0.8;
 
 //Parallel blades that all cut on one press.
 const KNIFE_SETS = [
@@ -50,7 +51,14 @@ type Spark = {
   shape: any;
 };
 
-type LayerName = 'background' | 'gameplay' | 'effects' | 'knife';
+type LayerName = 'background' | 'decor' | 'gameplay' | 'effects' | 'knife';
+
+type DecorLayout = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 
 //A stage is one ingredient: its shape, its colouring, and how long you get.
 type Stage = {
@@ -323,6 +331,7 @@ async function main() {
   const bladeShapes: any[] = [];
   const layerShapes: Record<LayerName, any[]> = {
     background: [],
+    decor: [],
     gameplay: [],
     effects: [],
     knife: [],
@@ -330,6 +339,13 @@ async function main() {
 
   let kitchenPic: any;
   let boardPic: any;
+  let leavesPic: any;
+  let calyxPic: any;
+  let leavesLayout: DecorLayout;
+  let calyxLayout: DecorLayout;
+  let decorKind: Stage['decor'] = null;
+  let decorFading = false;
+  let decorFadeTime = 0;
 
   let stage = STAGES[0];
   let timeLeft = stage.time;
@@ -364,6 +380,22 @@ async function main() {
     picture.translate(x, y);
   }
 
+  function makeDecorLayout(picture: any, widthRatio: number, leftRatio: number, topRatio: number): DecorLayout {
+    const src = picture.size();
+    const width = WIDTH * widthRatio;
+    const height = width * (src.height / src.width);
+    const x = WIDTH * leftRatio - width / 2;
+    const y = HEIGHT * topRatio;
+    return { x, y, width, height };
+  }
+
+  function placeDecor(picture: any, layout: DecorLayout, scale = 1, offsetY = 0) {
+    const width = layout.width * scale;
+    const height = layout.height * scale;
+    picture.size(width, height);
+    picture.translate(layout.x - (width - layout.width) / 2, layout.y + offsetY);
+  }
+
   function addToLayer(layer: LayerName, shape: any) {
     shape.opacity(255);
     canvas.add(shape);
@@ -378,14 +410,17 @@ async function main() {
 
   function resetSceneLayers() {
     hideLayer('background');
+    hideLayer('decor');
     hideLayer('gameplay');
     hideLayer('effects');
     hideLayer('knife');
   }
 
-  [kitchenPic, boardPic] = await Promise.all([
+  [kitchenPic, boardPic, leavesPic, calyxPic] = await Promise.all([
     loadPictureFromPublic('kitchen.png', 'png'),
     loadPictureFromPublic('board.png', 'png'),
+    loadPictureFromPublic('leaves.svg', 'svg'),
+    loadPictureFromPublic('calyx.svg', 'svg'),
   ]);
 
   fitCover(kitchenPic, WIDTH, HEIGHT);
@@ -395,8 +430,61 @@ async function main() {
   boardPic.size(boardW, boardH);
   boardPic.translate((WIDTH - boardW) / 2, (HEIGHT - boardH) / 2);
 
+  leavesLayout = makeDecorLayout(leavesPic, 0.22, 0.5, 0.09);
+  calyxLayout = makeDecorLayout(calyxPic, 0.16, 0.5, 0.32);
+
   stageEl.style.background = 'none';
   boardEl.style.opacity = '0';
+  leavesEl.style.display = 'none';
+  calyxEl.style.display = 'none';
+
+  function setDecor(kind: Stage['decor']) {
+    decorKind = kind;
+    decorFading = false;
+    decorFadeTime = 0;
+
+    leavesPic.opacity(0);
+    calyxPic.opacity(0);
+
+    if (kind === 'leaves') {
+      placeDecor(leavesPic, leavesLayout, 1, 0);
+      leavesPic.opacity(255);
+      return;
+    }
+
+    if (kind === 'calyx') {
+      placeDecor(calyxPic, calyxLayout, 1, 0);
+      calyxPic.opacity(255);
+      return;
+    }
+  }
+
+  function startDecorFade() {
+    if (!decorKind) return;
+    decorFading = true;
+    decorFadeTime = 0;
+  }
+
+  function updateDecor(dt: number) {
+    if (!decorFading || !decorKind) return;
+
+    decorFadeTime += dt;
+    const t = Math.min(1, decorFadeTime / DECOR_FADE_DURATION);
+    const opacity = Math.round(255 * (1 - t));
+
+    if (decorKind === 'leaves') {
+      placeDecor(leavesPic, leavesLayout, 1, -30 * t);
+      leavesPic.opacity(opacity);
+    } else if (decorKind === 'calyx') {
+      placeDecor(calyxPic, calyxLayout, 1 + 0.4 * t, 0);
+      calyxPic.opacity(opacity);
+    }
+
+    if (t >= 1) {
+      decorFading = false;
+      decorKind = null;
+    }
+  }
 
   //Shapes are built once and kept in the scene; only translate() changes.
   function makePiece(outline: Pt[], colour: Rgb, vx: number, vy: number): Piece {
@@ -474,6 +562,8 @@ async function main() {
       const c = centroidOf(outline);
       pieces.push(makePiece(outline, stage.colour(c.x, c.y, WIDTH / 2, HEIGHT / 2), 0, 0));
     }
+    addToLayer('decor', leavesPic);
+    addToLayer('decor', calyxPic);
 
     timeLeft = stage.time;
     running = false;
@@ -486,10 +576,7 @@ async function main() {
     showCount();
 
     //Only the current ingredient's garnish sits on the board.
-    leavesEl.style.display = stage.decor === 'leaves' ? 'block' : 'none';
-    calyxEl.style.display = stage.decor === 'calyx' ? 'block' : 'none';
-    leavesEl.classList.remove('gone');
-    calyxEl.classList.remove('gone');
+    setDecor(stage.decor);
   }
 
   //Three beats before the timer starts, so the cook can settle in.
@@ -512,8 +599,7 @@ async function main() {
 
       setTimeout(() => {
         countdownEl.classList.remove('show');
-        leavesEl.classList.add('gone');
-        calyxEl.classList.add('gone');
+        startDecorFade();
         running = true;
       }, 700);
     };
@@ -788,6 +874,7 @@ async function main() {
     }
 
     if (rotating) knifeAngle += ROT_SPEED * dt;
+    updateDecor(dt);
 
     //Only moving pieces touch the scene; a piece at rest costs nothing.
     for (const piece of pieces) {
