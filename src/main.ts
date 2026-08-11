@@ -22,6 +22,7 @@ const GATHER_PUSH = 1.0;
 const SPARK_LIFE = 0.5;
 const SPARK_COUNT = 9;
 const SPARK_DAMPING = 0.93;
+const DECOR_FADE_DURATION = 0.8;
 
 //Parallel blades that all cut on one press.
 const KNIFE_SETS = [
@@ -48,6 +49,15 @@ type Spark = {
   vx: number; vy: number;
   life: number;
   shape: any;
+};
+
+type LayerName = 'background' | 'decor' | 'gameplay' | 'effects' | 'knife';
+
+type DecorLayout = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 };
 
 //A stage is one ingredient: its shape, its colouring, and how long you get.
@@ -311,12 +321,26 @@ async function main() {
   const countdownEl = document.querySelector('#countdown') as HTMLElement;
   const countTextEl = document.querySelector('#count-text') as HTMLElement;
 
-  const leavesEl = document.querySelector('#leaves') as HTMLElement;
-  const calyxEl = document.querySelector('#calyx') as HTMLElement;
-
   const pieces: Piece[] = [];
   const sparks: Spark[] = [];
   const bladeShapes: any[] = [];
+  const layerShapes: Record<LayerName, any[]> = {
+    background: [],
+    decor: [],
+    gameplay: [],
+    effects: [],
+    knife: [],
+  };
+
+  let kitchenPic: any;
+  let boardPic: any;
+  let leavesPic: any;
+  let calyxPic: any;
+  let leavesLayout: DecorLayout;
+  let calyxLayout: DecorLayout;
+  let decorKind: Stage['decor'] = null;
+  let decorFading = false;
+  let decorFadeTime = 0;
 
   let stage = STAGES[0];
   let timeLeft = stage.time;
@@ -330,6 +354,128 @@ async function main() {
 
   // ---- scene ----
 
+  async function loadPictureFromPublic(path: string, type: 'png' | 'svg') {
+    const res = await fetch(import.meta.env.BASE_URL + path);
+    const bytes = new Uint8Array(await res.arrayBuffer());
+  
+    const pic = new TVG.Picture();
+    pic.load(bytes, { type });
+    return pic;
+  }
+  
+  function fitCover(picture: any, targetW: number, targetH: number) {
+    const src = picture.size();
+    const scale = Math.max(targetW / src.width, targetH / src.height);
+    const w = src.width * scale;
+    const h = src.height * scale;
+    const x = (targetW - w) / 2;
+    const y = (targetH - h) / 2;
+  
+    picture.size(w, h);
+    picture.translate(x, y);
+  }
+
+  function makeDecorLayout(picture: any, widthRatio: number, leftRatio: number, topRatio: number): DecorLayout {
+    const src = picture.size();
+    const width = WIDTH * widthRatio;
+    const height = width * (src.height / src.width);
+    const x = WIDTH * leftRatio - width / 2;
+    const y = HEIGHT * topRatio;
+    return { x, y, width, height };
+  }
+
+  function placeDecor(picture: any, layout: DecorLayout, scale = 1, offsetY = 0) {
+    const width = layout.width * scale;
+    const height = layout.height * scale;
+    picture.size(width, height);
+    picture.translate(layout.x - (width - layout.width) / 2, layout.y + offsetY);
+  }
+
+  function addToLayer(layer: LayerName, shape: any) {
+    shape.opacity(255);
+    canvas.add(shape);
+    layerShapes[layer].push(shape);
+    return shape;
+  }
+
+  function hideLayer(layer: LayerName) {
+    for (const shape of layerShapes[layer]) shape.opacity(0);
+    layerShapes[layer].length = 0;
+  }
+
+  function resetSceneLayers() {
+    hideLayer('background');
+    hideLayer('decor');
+    hideLayer('gameplay');
+    hideLayer('effects');
+    hideLayer('knife');
+  }
+
+  [kitchenPic, boardPic, leavesPic, calyxPic] = await Promise.all([
+    loadPictureFromPublic('kitchen.png', 'png'),
+    loadPictureFromPublic('board.png', 'png'),
+    loadPictureFromPublic('leaves.svg', 'svg'),
+    loadPictureFromPublic('calyx.svg', 'svg'),
+  ]);
+
+  fitCover(kitchenPic, WIDTH, HEIGHT);
+
+  const boardW = WIDTH * 1.2;
+  const boardH = HEIGHT * 1.2;
+  boardPic.size(boardW, boardH);
+  boardPic.translate((WIDTH - boardW) / 2, (HEIGHT - boardH) / 2);
+
+  leavesLayout = makeDecorLayout(leavesPic, 0.22, 0.5, 0.09);
+  calyxLayout = makeDecorLayout(calyxPic, 0.16, 0.5, 0.32);
+
+  function setDecor(kind: Stage['decor']) {
+    decorKind = kind;
+    decorFading = false;
+    decorFadeTime = 0;
+
+    leavesPic.opacity(0);
+    calyxPic.opacity(0);
+
+    if (kind === 'leaves') {
+      placeDecor(leavesPic, leavesLayout, 1, 0);
+      leavesPic.opacity(255);
+      return;
+    }
+
+    if (kind === 'calyx') {
+      placeDecor(calyxPic, calyxLayout, 1, 0);
+      calyxPic.opacity(255);
+      return;
+    }
+  }
+
+  function startDecorFade() {
+    if (!decorKind) return;
+    decorFading = true;
+    decorFadeTime = 0;
+  }
+
+  function updateDecor(dt: number) {
+    if (!decorFading || !decorKind) return;
+
+    decorFadeTime += dt;
+    const t = Math.min(1, decorFadeTime / DECOR_FADE_DURATION);
+    const opacity = Math.round(255 * (1 - t));
+
+    if (decorKind === 'leaves') {
+      placeDecor(leavesPic, leavesLayout, 1, -30 * t);
+      leavesPic.opacity(opacity);
+    } else if (decorKind === 'calyx') {
+      placeDecor(calyxPic, calyxLayout, 1 + 0.4 * t, 0);
+      calyxPic.opacity(opacity);
+    }
+
+    if (t >= 1) {
+      decorFading = false;
+      decorKind = null;
+    }
+  }
+
   //Shapes are built once and kept in the scene; only translate() changes.
   function makePiece(outline: Pt[], colour: Rgb, vx: number, vy: number): Piece {
     const shape = new TVG.Shape();
@@ -340,7 +486,7 @@ async function main() {
     shape.close();
     shape.fill(colour.r, colour.g, colour.b, 255);
     shape.stroke({ width: 4, color: [92, 48, 20, 255] });
-    canvas.add(shape);
+    addToLayer('gameplay', shape);
 
     return {
       outline, dx: 0, dy: 0, vx, vy,
@@ -372,7 +518,7 @@ async function main() {
       const shape = new TVG.Shape();
       shape.appendCircle(x, y, r, r);
       shape.fill(255, 214, 150, 255);
-      canvas.add(shape);
+      addToLayer('effects', shape);
 
       sparks.push({
         dx: 0, dy: 0,
@@ -394,7 +540,10 @@ async function main() {
   }
 
   function resetStage() {
+    resetSceneLayers();
     canvas.clear();
+    addToLayer('background', kitchenPic);
+    addToLayer('background', boardPic);
     pieces.length = 0;
     sparks.length = 0;
     bladeShapes.length = 0;
@@ -403,6 +552,8 @@ async function main() {
       const c = centroidOf(outline);
       pieces.push(makePiece(outline, stage.colour(c.x, c.y, WIDTH / 2, HEIGHT / 2), 0, 0));
     }
+    addToLayer('decor', leavesPic);
+    addToLayer('decor', calyxPic);
 
     timeLeft = stage.time;
     running = false;
@@ -415,10 +566,7 @@ async function main() {
     showCount();
 
     //Only the current ingredient's garnish sits on the board.
-    leavesEl.style.display = stage.decor === 'leaves' ? 'block' : 'none';
-    calyxEl.style.display = stage.decor === 'calyx' ? 'block' : 'none';
-    leavesEl.classList.remove('gone');
-    calyxEl.classList.remove('gone');
+    setDecor(stage.decor);
   }
 
   //Three beats before the timer starts, so the cook can settle in.
@@ -441,8 +589,7 @@ async function main() {
 
       setTimeout(() => {
         countdownEl.classList.remove('show');
-        leavesEl.classList.add('gone');
-        calyxEl.classList.add('gone');
+        startDecorFade();
         running = true;
       }, 700);
     };
@@ -717,6 +864,7 @@ async function main() {
     }
 
     if (rotating) knifeAngle += ROT_SPEED * dt;
+    updateDecor(dt);
 
     //Only moving pieces touch the scene; a piece at rest costs nothing.
     for (const piece of pieces) {
@@ -772,7 +920,7 @@ async function main() {
       blade.moveTo(a.x, a.y);
       blade.lineTo(b.x, b.y);
       blade.stroke({ width: 7, color: [225, 228, 235, 235] });
-      canvas.add(blade);
+      addToLayer('knife', blade);
       bladeShapes.push(blade);
 
       const hx = a.x + (b.x - a.x) * HANDLE_RATIO;
@@ -781,7 +929,7 @@ async function main() {
       handle.moveTo(a.x, a.y);
       handle.lineTo(hx, hy);
       handle.stroke({ width: 13, color: [92, 58, 38, 255] });
-      canvas.add(handle);
+      addToLayer('knife', handle);
       bladeShapes.push(handle);
     }
 
@@ -790,6 +938,8 @@ async function main() {
     requestAnimationFrame(animate);
   }
 
+  resetSceneLayers();
+  canvas.clear();
   resetStage();
   requestAnimationFrame(animate);
 }

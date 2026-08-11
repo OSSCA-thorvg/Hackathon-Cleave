@@ -28,58 +28,17 @@
       container-type: size;
       width: min(95vw, 140vh);
       aspect-ratio: 3 / 2;
-      background: url('./kitchen.png') center / 100% 100% no-repeat;
+      background: #6a452f;
       border-radius: 14px;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
       overflow: hidden;
     }
 
-    #board {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      transform: scale(1.20);
-    }
-
     #canvas {
       position: absolute;
-      left: 21%;
-      top: 19%;
-      width: 66% !important;
-      height: 57% !important;
-    }
-
-    /* ---- 재료 장식 ---- */
-    #leaves {
-      position: absolute;
-      left: 53.9%;
-      top: 9%;
-      width: 22%;
-      transform: translateX(-50%);
-      transition: opacity 0.8s ease, transform 0.8s ease;
-      pointer-events: none;
-    }
-
-    #leaves.gone {
-      opacity: 0;
-      transform: translateX(-50%) translateY(-30px);
-    }
-
-    #calyx {
-      position: absolute;
-      left: 53.9%;
-      top: 32%;
-      width: 16%;
-      transform: translateX(-50%);
-      transition: opacity 0.8s ease, transform 0.8s ease;
-      pointer-events: none;
-      display: none;
-    }
-
-    #calyx.gone {
-      opacity: 0;
-      transform: translateX(-50%) scale(1.4);
+      inset: 0;
+      width: 100% !important;
+      height: 100% !important;
     }
 
     #hud {
@@ -495,10 +454,7 @@
 
 <body>
   <div id="stage">
-    <img id="board" src="./board.png" />
     <canvas id="canvas"></canvas>
-    <img id="leaves" src="./leaves.svg" />
-    <img id="calyx" src="./calyx.svg" />
 
     <div id="hud">
       <div id="stage-name">당근</div>
