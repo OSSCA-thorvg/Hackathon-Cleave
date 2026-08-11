@@ -50,7 +50,7 @@ type Spark = {
   shape: any;
 };
 
-type LayerName = 'gameplay' | 'effects' | 'knife';
+type LayerName = 'background' | 'gameplay' | 'effects' | 'knife';
 
 //A stage is one ingredient: its shape, its colouring, and how long you get.
 type Stage = {
@@ -315,15 +315,21 @@ async function main() {
 
   const leavesEl = document.querySelector('#leaves') as HTMLElement;
   const calyxEl = document.querySelector('#calyx') as HTMLElement;
+  const stageEl = document.querySelector('#stage') as HTMLElement;
+  const boardEl = document.querySelector('#board') as HTMLElement;
 
   const pieces: Piece[] = [];
   const sparks: Spark[] = [];
   const bladeShapes: any[] = [];
   const layerShapes: Record<LayerName, any[]> = {
+    background: [],
     gameplay: [],
     effects: [],
     knife: [],
-  }
+  };
+
+  let kitchenPic: any;
+  let boardPic: any;
 
   let stage = STAGES[0];
   let timeLeft = stage.time;
@@ -337,7 +343,29 @@ async function main() {
 
   // ---- scene ----
 
+  async function loadPictureFromPublic(path: string, type: 'png' | 'svg') {
+    const res = await fetch(import.meta.env.BASE_URL + path);
+    const bytes = new Uint8Array(await res.arrayBuffer());
+  
+    const pic = new TVG.Picture();
+    pic.load(bytes, { type });
+    return pic;
+  }
+  
+  function fitCover(picture: any, targetW: number, targetH: number) {
+    const src = picture.size();
+    const scale = Math.max(targetW / src.width, targetH / src.height);
+    const w = src.width * scale;
+    const h = src.height * scale;
+    const x = (targetW - w) / 2;
+    const y = (targetH - h) / 2;
+  
+    picture.size(w, h);
+    picture.translate(x, y);
+  }
+
   function addToLayer(layer: LayerName, shape: any) {
+    shape.opacity(255);
     canvas.add(shape);
     layerShapes[layer].push(shape);
     return shape;
@@ -349,10 +377,26 @@ async function main() {
   }
 
   function resetSceneLayers() {
+    hideLayer('background');
     hideLayer('gameplay');
     hideLayer('effects');
     hideLayer('knife');
   }
+
+  [kitchenPic, boardPic] = await Promise.all([
+    loadPictureFromPublic('kitchen.png', 'png'),
+    loadPictureFromPublic('board.png', 'png'),
+  ]);
+
+  fitCover(kitchenPic, WIDTH, HEIGHT);
+
+  const boardW = WIDTH * 1.2;
+  const boardH = HEIGHT * 1.2;
+  boardPic.size(boardW, boardH);
+  boardPic.translate((WIDTH - boardW) / 2, (HEIGHT - boardH) / 2);
+
+  stageEl.style.background = 'none';
+  boardEl.style.opacity = '0';
 
   //Shapes are built once and kept in the scene; only translate() changes.
   function makePiece(outline: Pt[], colour: Rgb, vx: number, vy: number): Piece {
@@ -418,7 +462,10 @@ async function main() {
   }
 
   function resetStage() {
+    resetSceneLayers();
     canvas.clear();
+    addToLayer('background', kitchenPic);
+    addToLayer('background', boardPic);
     pieces.length = 0;
     sparks.length = 0;
     bladeShapes.length = 0;
