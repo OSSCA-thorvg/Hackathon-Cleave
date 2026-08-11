@@ -50,6 +50,8 @@ type Spark = {
   shape: any;
 };
 
+type LayerName = 'gameplay' | 'effects' | 'knife';
+
 //A stage is one ingredient: its shape, its colouring, and how long you get.
 type Stage = {
   name: string;
@@ -317,6 +319,11 @@ async function main() {
   const pieces: Piece[] = [];
   const sparks: Spark[] = [];
   const bladeShapes: any[] = [];
+  const layerShapes: Record<LayerName, any[]> = {
+    gameplay: [],
+    effects: [],
+    knife: [],
+  }
 
   let stage = STAGES[0];
   let timeLeft = stage.time;
@@ -330,6 +337,23 @@ async function main() {
 
   // ---- scene ----
 
+  function addToLayer(layer: LayerName, shape: any) {
+    canvas.add(shape);
+    layerShapes[layer].push(shape);
+    return shape;
+  }
+
+  function hideLayer(layer: LayerName) {
+    for (const shape of layerShapes[layer]) shape.opacity(0);
+    layerShapes[layer].length = 0;
+  }
+
+  function resetSceneLayers() {
+    hideLayer('gameplay');
+    hideLayer('effects');
+    hideLayer('knife');
+  }
+
   //Shapes are built once and kept in the scene; only translate() changes.
   function makePiece(outline: Pt[], colour: Rgb, vx: number, vy: number): Piece {
     const shape = new TVG.Shape();
@@ -340,7 +364,7 @@ async function main() {
     shape.close();
     shape.fill(colour.r, colour.g, colour.b, 255);
     shape.stroke({ width: 4, color: [92, 48, 20, 255] });
-    canvas.add(shape);
+    addToLayer('gameplay', shape);
 
     return {
       outline, dx: 0, dy: 0, vx, vy,
@@ -372,7 +396,7 @@ async function main() {
       const shape = new TVG.Shape();
       shape.appendCircle(x, y, r, r);
       shape.fill(255, 214, 150, 255);
-      canvas.add(shape);
+      addToLayer('effects', shape);
 
       sparks.push({
         dx: 0, dy: 0,
@@ -772,7 +796,7 @@ async function main() {
       blade.moveTo(a.x, a.y);
       blade.lineTo(b.x, b.y);
       blade.stroke({ width: 7, color: [225, 228, 235, 235] });
-      canvas.add(blade);
+      addToLayer('knife', blade);
       bladeShapes.push(blade);
 
       const hx = a.x + (b.x - a.x) * HANDLE_RATIO;
@@ -781,7 +805,7 @@ async function main() {
       handle.moveTo(a.x, a.y);
       handle.lineTo(hx, hy);
       handle.stroke({ width: 13, color: [92, 58, 38, 255] });
-      canvas.add(handle);
+      addToLayer('knife', handle);
       bladeShapes.push(handle);
     }
 
@@ -790,6 +814,8 @@ async function main() {
     requestAnimationFrame(animate);
   }
 
+  resetSceneLayers();
+  canvas.clear();
   resetStage();
   requestAnimationFrame(animate);
 }
