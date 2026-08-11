@@ -321,11 +321,6 @@ async function main() {
   const countdownEl = document.querySelector('#countdown') as HTMLElement;
   const countTextEl = document.querySelector('#count-text') as HTMLElement;
 
-  const leavesEl = document.querySelector('#leaves') as HTMLElement;
-  const calyxEl = document.querySelector('#calyx') as HTMLElement;
-  const stageEl = document.querySelector('#stage') as HTMLElement;
-  const boardEl = document.querySelector('#board') as HTMLElement;
-
   const pieces: Piece[] = [];
   const sparks: Spark[] = [];
   const bladeShapes: any[] = [];
@@ -432,11 +427,6 @@ async function main() {
 
   leavesLayout = makeDecorLayout(leavesPic, 0.22, 0.5, 0.09);
   calyxLayout = makeDecorLayout(calyxPic, 0.16, 0.5, 0.32);
-
-  stageEl.style.background = 'none';
-  boardEl.style.opacity = '0';
-  leavesEl.style.display = 'none';
-  calyxEl.style.display = 'none';
 
   function setDecor(kind: Stage['decor']) {
     decorKind = kind;
